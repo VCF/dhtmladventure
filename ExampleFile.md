@@ -84,13 +84,17 @@ disposition of other creatures, time left on bomb, etc.
 ### Conditional outcomes
 
 Tie in to State and Inventory. For example, allow "Open door" only if
-key is in inventory, or different outcomes when "Talk to guard"
-depending on how friendly she is to the player.
+key is in inventory, or different outcomes when "Talk to guard" is
+selected depending on how friendly she is to the player.
 
 ### Images
 
 I want to allow at least one image for the room, plus a way to store a
 credit for the image.
+
+### Advanced action language?
+
+Like the classic 1990's games "put candle on table"? Stretch goal, I think.
 
 [WP_Gamebook]: https://en.wikipedia.org/wiki/Gamebook
 [WP_Markdown]: https://en.wikipedia.org/wiki/Markdown
