@@ -1,0 +1,9 @@
+# The .gitignore tells git to ignore files with certain naming
+# patterns when you run git status. This keeps git status from
+# hassling you over files you need in the folder but don't want added
+# to the repository
+
+# emacs temporary files:
+*#
+*~
+.#*
