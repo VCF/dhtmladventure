@@ -10,9 +10,9 @@ snow does *not* reach the top of the chimney.
 Your family relies on the wheat harvest, both for food and for some
 extra money to buy the things you need. But rain never came this year,
 and the wheat never matured, no matter how much water you hauled from
-the river, over a mile away. Your brother's too small to realize
-thegravity of the situation, but you can see the terror in your
-parents' faces.
+the river, over a mile away. Your brother's too small to realize the
+gravity of the situation, but you can see the terror in your parents'
+faces.
 
 But there are other ways to make it than farming. You've heard the
 rumors at the market, of vast wealth hidden in the lands around your
