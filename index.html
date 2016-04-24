@@ -1,0 +1,41 @@
+<html><head>
+  <meta charset="utf-8">
+
+  <!-- https://jquery.com/download/ -->
+  <script src="js/jquery-2.2.3.min.js"></script>
+
+  <!-- https://code.jquery.com/ui/ -->
+  <script src="js/jquery-ui-1.11.4.js"></script>
+  <link type="text/css" rel="stylesheet"
+    href="js/jquery-ui-1.11.4.css" />
+
+  <!-- http://layout.jquery-dev.com/downloads.cfm -->
+  <script src="js/jquery.layout-latest.js"></script>
+  <link type="text/css" rel="stylesheet"
+    href="js/layout-default-latest.css" />
+
+  <!-- https://github.com/evilstreak/markdown-js/releases -->
+  <script src="js/markdown.min.js"></script>
+
+  <script src="js/dhtmlAdventure.js"></script>
+  <link type="text/css" rel="stylesheet"
+    href="js/dhtmlAdventure.css" />
+
+  <script>
+    $(document).ready( DAdocReady );
+</script>
+<Title>DHTML Adventure</title>
+</head><body>
+<div  id="main-pane" class="ui-layout-center">Main</div>
+<div  id="left-pane" class="ui-layout-west">
+ <div id="image-pane" class="ui-layout-north">Image</div>
+ <div id="object-pane" class="ui-layout-center">
+  <ul>
+   <li><a href="#inventory">Inventory</a></li>
+  </ul>
+  <div id='inventory'>
+  Your inventory is empty.
+  </div>
+ </div>
+</div>
+</body></html>
