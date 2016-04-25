@@ -5,9 +5,10 @@
   <script src="js/jquery-2.2.3.min.js"></script>
 
   <!-- https://code.jquery.com/ui/ -->
-  <script src="js/jquery-ui-1.11.4.js"></script>
-  <link type="text/css" rel="stylesheet"
-    href="js/jquery-ui-1.11.4.css" />
+  <script src="js/jquery-ui.js"></script>
+  <link type="text/css" rel="stylesheet" href="js/jquery-ui.css" />
+  <link type="text/css" rel="stylesheet" href="js/jquery-ui.structure.css" />
+  <link type="text/css" rel="stylesheet" href="js/jquery-ui.theme.css" />
 
   <!-- http://layout.jquery-dev.com/downloads.cfm -->
   <script src="js/jquery.layout-latest.js"></script>
@@ -30,12 +31,18 @@
 <div  id="left-pane" class="ui-layout-west">
  <div id="image-pane" class="ui-layout-north">Image</div>
  <div id="object-pane" class="ui-layout-center">
-  <ul>
-   <li><a href="#inventory">Inventory</a></li>
-  </ul>
-  <div id='inventory'>
-  Your inventory is empty.
+  <div class="group">
+   <h3>Inventory</h3>
+   <div id='inventory'>
+   Your inventory is empty.
+   </div>
   </div>
+  <div class="group">
+  <h3>Old wood chest</h3>
+  <div id="id42522">
+  Something interesting goes here.
+  </div>
+ </div>
  </div>
 </div>
 </body></html>
