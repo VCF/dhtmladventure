@@ -16,3 +16,9 @@
 .errMsg { font-size: 0.6em; border: solid 1px red; }
 
 .dbgMsg { font-size: 0.6em; border: solid 1px blue; }
+
+#image-pane  { padding: 0px ! important; }
+#image-pane img { max-width: 100%; max-height:100%; }
+
+/* #image-pane .ui-button{ display : none; } */    
+#image-pane .ui-button { font-size: 0.5em ! important; background: yellow; border: solid 2px blue; padding: 0px ! important; position:absolute;  bottom:0; right:0; }

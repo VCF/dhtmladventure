@@ -2,8 +2,6 @@
 
 ![Excalibur by HBKerr][MainImage]
 
-Currently testing Markdown parsing
-
 The following adventures are available:
 
 * [TreasureHunt](TreasureHunt)
