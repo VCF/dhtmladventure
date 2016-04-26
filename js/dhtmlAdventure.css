@@ -20,5 +20,27 @@
 #image-pane  { padding: 0px ! important; }
 #image-pane img { max-width: 100%; max-height:100%; }
 
-/* #image-pane .ui-button{ display : none; } */    
-#image-pane .ui-button { font-size: 0.5em ! important; background: yellow; border: solid 2px blue; padding: 0px ! important; position:absolute;  bottom:0; right:0; }
+code {
+    background-color: rgb(236, 254, 252);
+    padding: 3px;
+    display: inline-block;
+}
+
+/* Credit button styling */
+.cred-button { font-size: 0.5em ! important; background: yellow; border: solid 2px blue; padding: 0px ! important; }
+/* Floating lower-right button: https://stackoverflow.com/a/3956058 */
+.cred-button { position:absolute;  bottom:0; right:0; }
+/* image container no larger than image: https://stackoverflow.com/a/3917059 */
+.cred-p { position:relative; display: inline-block; }
+
+.room-button {
+    background-color: rgb(150, 255, 150);
+    text-decoration: none;
+    border-radius: 4px;
+    border: 1px solid rgb(209, 8, 199);
+    padding: 0px 5px;
+}
+
+/* Highlight links that open outside the game https://stackoverflow.com/a/18168287 */
+/* Icon from Wikipedia: https://upload.wikimedia.org/wikipedia/commons/6/64/Icon_External_Link.png */
+.ext-lnk:after { content: url(images/Icon_External_Link.png); margin: 0 0 0 5px; }
