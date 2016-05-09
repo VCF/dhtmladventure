@@ -2,24 +2,21 @@
 
 ![Excalibur by HBKerr][MainImage]
 
-The following adventures are available:
+This adventure collection is designed to illustrate how to make your
+own adventures with DHTML Adventure. The following example adventures
+are available:
 
-* [TreasureHunt](TreasureHunt)
-  * Level 2 list **BOLD TEXT**
-  * Level 2.b
-
-Text with `preformat chunk` embedded.
-
-    Code block
-    var potato = 20;
-
+[How To Write Adventures](HowToWriteAdventures/Start.md) - An "Adventure" that
+walks you through the steps to writing your own adventure.
 
 ### Credits
 
+* Overall Javascript framework - [Charles Tilford][VCF]
 * [jQuery JavaScript library][jQuery]
 * [jQuery User Interface][jQueryUI]
 * [markdown-js Markdown parser][markdownjs]
 
+[VCF]: https://github.com/VCF
 [jQuery]: https://jquery.com/
 [jQueryUI]: https://jqueryui.com/
 [markdownjs]: https://github.com/evilstreak/markdown-js

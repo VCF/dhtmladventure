@@ -9,6 +9,10 @@ function DHTMLAdventure () {
     this.roomCache  = [0];
 }
 
+var DAConstants = {
+    fileerror: "Room file failed to load"
+};
+
 DHTMLAdventure.prototype.initLayout = function () {
     /* Define the pane arangement for the main UI
      * http://layout.jquery-dev.com/documentation.cfm
@@ -93,10 +97,14 @@ DHTMLAdventure.prototype.err = function ( html ) {
 DHTMLAdventure.prototype.init = function () {
     var startDoc = "AdventureList.md";
     var dl = document.location;
+    var locPart;
     if (dl.search) {
-        var m = dl.search.match(/^\?(.+\.md)$/)
-        if (m) startDoc = m[1];
+        locPart = dl.search.match(/^\?(.+\.md)$/)
+    } else if (dl.hash) {
+        locPart = dl.hash.match(/^\#(.+\.md)$/)
     }
+    if (locPart) startDoc = locPart[1];
+    
     // this.debug(startDoc);
     var room = this.roomAction( startDoc, 'show' );
     if (room) room.show();
@@ -124,20 +132,38 @@ DHTMLAdventure.prototype.parseMarkdown = function ( text ) {
     return tree;
 }
 
-DHTMLAdventure.prototype.normalizeURI = function ( uri ) {
-    if (/^(\/|http|file)/.test(uri)) {
+DHTMLAdventure.prototype.absoluteURI = function ( uri ) {
+    var rv = uri;
+    if (/^(\/|http|file)/.test(rv)) {
         // Just tidy absolute URIs
     } else if (this.rootPath) {
-        uri = uri.replace(/\/{2,}/g, '/');
-        uri = uri.replace(/\/\.\//g, '/');
-        uri = uri.replace(/^\.\//, '');
-        uri = this.rootPath + uri;
+        rv = rv.replace(/\/{2,}/g, '/');
+        rv = rv.replace(/\/\.\//g, '/');
+        rv = rv.replace(/^\.\//, '');
+        if (/\.md$/.test(rv)) {
+            // Markdown files should always be at root level of root path
+            // This helps launch adventures from the AdventureList.md page
+            rv = rv.replace(/.+\//,'');
+        }
+        rv = this.rootPath + rv;
     }
-    return uri;
+    return rv;
+}
+
+DHTMLAdventure.prototype.relativeURI = function ( uri ) {
+    if (!this.basePath) {
+        var href = document.location.href;
+        href = href.replace(/[\?\#].+$/, '');
+        href = href.replace(/[^\/]+$/, '');
+        this.basePath = href;
+    }
+    var rv = this.absoluteURI( uri );
+    rv = rv.replace(this.basePath, '');
+    return rv;
 }
 
 DHTMLAdventure.prototype.getCachedRoom = function ( uri  ) {
-    uri = this.normalizeURI( uri );
+    uri = this.absoluteURI( uri );
     if (!uri) return 0;
     var ind = this.roomURIs[ uri ];
     if (ind) {
@@ -154,20 +180,32 @@ DHTMLAdventure.prototype.createRoom = function ( text, uri, action  ) {
         this.err("Room '"+uri+"' already exists at index "+ind)
         return room;
     }
-    uri  = this.normalizeURI( uri );
+    uri  = this.absoluteURI( uri );
     room = new DARoom( this );
     this.roomCache.push( room );
     room.markdown = text;
     room.rawTree  = markdown.toHTMLTree( text );
     room.uri      = uri;
+    room.relpath  = this.relativeURI( uri );
     room.cache    = this.roomURIs[ uri ] = this.roomCache.length - 1;
     if (action) return room[ action ]();
     return room;
-    // this.debug( JSON.stringify( tree ) );
+}
+
+DHTMLAdventure.prototype.failedRoom = function (uri, action, errType, errTxt ) {
+    var md = "# Game error\n\n![Kendell Geers on Wikimedia][Error]\n\nThe previous room linked to a room file that could not be recovered. Chances are this is because there was a **typo in the link** (the room file was misspelled) or because the room file has **not yet been created**. It is also possible that the file exists, but has access permissions that prevent it from being displayed.\n\n";
+    md += "* Requested Room: `"+this.relativeURI(uri)+"`\n";
+    md += "* Error type: `"+errType+"`\n";
+    md += "* Error text: `"+errTxt+"`\n";
+    md += "* Room URI: ["+uri+"]("+uri+")\n";
+    md += "\n[Return to the previous room]("+this.currentRoom+")\n\n";
+    md += "[Error]: ../js/Error.jpg 'https://commons.wikimedia.org/wiki/File:Kendell_Geers_-_T-error_%282003%29_sans_T.jpg'";
+    var room = this.createRoom( md, uri, action);
+    room.linkClass = 'error';
 }
 
 DHTMLAdventure.prototype.roomAction = function ( uri, action ) {
-    uri = this.normalizeURI( uri );
+    uri = this.absoluteURI( uri );
     var cacheInd = this.roomURIs[ uri ];
     if (cacheInd) {
         var room = this.roomCache[ cacheInd ];
@@ -180,16 +218,16 @@ DHTMLAdventure.prototype.roomAction = function ( uri, action ) {
 DHTMLAdventure.prototype.retrieveURI = function ( uri, action, afterAction ) {
     var self = this;
     if (!action) action = "createRoom";
-    if (!this.rootPath) {
+    if (this.rootPath) {
+        uri = this.absoluteURI(uri);
+    } else if (/\.md$/.test(uri) && !/AdventureList\.md$/.test(uri)) {
         // https://stackoverflow.com/a/6644749
         var temp = document.createElement('a');
         temp.href = uri;
         var root = uri = temp.href;
         root = root.replace(/[^\/]+$/,"");
         this.rootPath = root;
-        // this.debugObj( "Root set: "+root );
     }
-    uri = this.normalizeURI(uri);
     // alert(uri);
     $.ajax({url: uri,
             dataType: "text",
@@ -202,8 +240,12 @@ DHTMLAdventure.prototype.retrieveURI = function ( uri, action, afterAction ) {
                 self[ action ]( result, uri, afterAction );
             },
             error: function(jqXHR, errType, errTxt) {
-                self.err("<b>"+errType+"</b> : While recovering '"+uri+
-                         "': <i>"+errTxt+"</i>");
+                if (action == 'createRoom') {
+                    self.failedRoom( uri, afterAction, errType, errTxt );
+                } else {
+                    self.err("<b>"+errType+"</b> : While recovering '"+uri+
+                             "': <i>"+errTxt+"</i>");
+                }
             }
            });
 }
@@ -253,12 +295,17 @@ DARoom.prototype.show = function () {
 }
 
 DARoom.prototype._showMarkdown = function ( ) {
-    // Should we try to manipulate the tree in HTML or jsonML?
+    this.DA.currentRoom = this.relpath;
     var jsonML = this.processJsonML();
-    // this.DA.debugObj( jsonML );
     var html = markdown.renderJsonML( jsonML );
     $("#main-pane").html( html )
     this.addExtras();
+    var dl = document.location;
+    // We will set the hash to the relative path, to prevent a
+    // javascript-induced page reload while allowing a user-triggered
+    // page reload (Ctrl-R) to load the appropriate room
+    document.location.hash = this.relpath;
+    if (document.location.search) document.location.search = "";
     // this.debug( "<pre>" + this.escXML( html) +"</pre>" );
 }
 
@@ -370,7 +417,7 @@ DARoom.prototype._parse = function ( node, parent ) {
     }
     if (tag == 'img') {
         // Normalize image URLs
-        attr.src = this.DA.normalizeURI( attr.src );
+        attr.src = this.DA.absoluteURI( attr.src );
         if (!nt.mainImage) {
             // The first image should go in the image pane
             nt.mainImage = attr;
@@ -383,18 +430,25 @@ DARoom.prototype._parse = function ( node, parent ) {
         // parent[0] = 'div';
         childCount++;
     } else if (tag == 'a') {
-        var href = attr.href = this.DA.normalizeURI( attr.href );
+        var href = attr.href = this.DA.absoluteURI( attr.href );
         if (/\.md$/.test(href) && !(/^(\/|http)/.test(href))) {
             // This appears to be another room file
-            nt.rLinks.push(attr.id = "RoomLink" + ++this.idCnt);
+            if (this.roomType == 'AdventureList') {
+                // We are still on the initial list page. We want to
+                // make URLs that will force a reload to start a new
+                // adventure.
+                var docref = document.location.href;
+                attr.href = docref + '?' + attr.href;
+                this.DA.debugObj( href );
+            } else {
+                nt.rLinks.push(attr.id = "RoomLink" + ++this.idCnt);
+            }
         } else {
             // External link
             attr.class='ext-lnk'
             attr['_target'] = 'blank'
         }
         // this.DA.debugObj( newNode );
-       
     }
-    
     return childCount ? newNode : null;
 }
