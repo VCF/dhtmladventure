@@ -5,6 +5,7 @@ function DHTMLAdventure () {
     this.layouts    = {};
     this.components = {};
     this.objects    = {};
+    this.config     = {};
     this.roomURIs   = {};
     this.roomCache  = [0];
 }
@@ -65,7 +66,6 @@ DHTMLAdventure.prototype.initLayout = function () {
 DHTMLAdventure.prototype.msg = function ( txt ) {
     // console.log(this.layouts.main)
     $.layout.msg( txt, true );
-    
 }
 
 DHTMLAdventure.prototype.objectSection = function ( id, header, text ) {
@@ -105,7 +105,6 @@ DHTMLAdventure.prototype.init = function () {
     }
     if (locPart) startDoc = locPart[1];
     
-    // this.debug(startDoc);
     var room = this.roomAction( startDoc, 'show' );
     if (room) room.show();
     // this.parseMarkdownURI( startDoc );
@@ -130,6 +129,24 @@ DHTMLAdventure.prototype.parseMarkdown = function ( text ) {
     // https://github.com/evilstreak/markdown-js
     var tree = markdown.parse( text );
     return tree;
+}
+
+DHTMLAdventure.prototype._noramlizeMarkedownNode = function ( node ) {
+    /* Make sure all nodes have an attribute hash at index 1
+     * First entry is tag name, eg "ul" or "p"
+     * There are additional 'things' defined for this node. They
+     * can be:
+     "A string"  (raw text)
+     {An object} (attributes)
+     [] (One or more child nodes
+     The attributes must be handled specially
+    */
+    if (node.length < 2 || 
+        typeof node[ 1 ] != "object" ||
+        node[ 1 ] instanceof Array) {
+        // There is not an attribute hash at index 1
+        node.splice(1, 0, {} );
+    }
 }
 
 DHTMLAdventure.prototype.absoluteURI = function ( uri ) {
@@ -192,16 +209,78 @@ DHTMLAdventure.prototype.createRoom = function ( text, uri, action  ) {
     return room;
 }
 
-DHTMLAdventure.prototype.failedRoom = function (uri, action, errType, errTxt ) {
+DHTMLAdventure.prototype.createRoomFailed = function (uri, action, errType, errTxt ) {
     var md = "# Game error\n\n![Kendell Geers on Wikimedia][Error]\n\nThe previous room linked to a room file that could not be recovered. Chances are this is because there was a **typo in the link** (the room file was misspelled) or because the room file has **not yet been created**. It is also possible that the file exists, but has access permissions that prevent it from being displayed.\n\n";
     md += "* Requested Room: `"+this.relativeURI(uri)+"`\n";
     md += "* Error type: `"+errType+"`\n";
     md += "* Error text: `"+errTxt+"`\n";
     md += "* Room URI: ["+uri+"]("+uri+")\n";
     md += "\n[Return to the previous room]("+this.currentRoom+")\n\n";
-    md += "[Error]: ../js/Error.jpg 'https://commons.wikimedia.org/wiki/File:Kendell_Geers_-_T-error_%282003%29_sans_T.jpg'";
+    md += "[Error]: ../assets/Error.jpg 'https://commons.wikimedia.org/wiki/File:Kendell_Geers_-_T-error_%282003%29_sans_T.jpg'";
     var room = this.createRoom( md, uri, action);
     room.linkClass = 'error';
+}
+
+DHTMLAdventure.prototype.globalConfig = function( text, uri, action  ) {
+    var tree = markdown.toHTMLTree( text );
+    var nt   = this.newTree = {
+        nodeHandler: '_configHandler',
+        config: {}
+    };
+    nt.tree = this._parse( tree );
+    this.config = nt.config;
+    //this.debugObj( this.newTree );
+    //this.debugObj( tree );
+}
+
+DHTMLAdventure.prototype._configHandler = function( newNode, parent ) {
+    var nt      = this.newTree;
+    var tag     = newNode[0]; // First entry is tag name, eg "ul" or "p"
+    if (tag == 'strong') {
+        // Conf tag names are stored as bold (strong) entries
+        if (!parent[1].tagnames) parent[1].tagnames = [];
+        parent[1].tagnames.push( newNode[2] );
+        return null;
+    }
+    if (tag == 'li') {
+        // Should have at least one tag set:
+        var tags = newNode[1].tagnames;
+        if (!tags) return null;
+        if (tags.length != 1) {
+            this.err("Multiple tag names set: "+tags.join(' + '));
+            return null;
+        }
+        var tag = tags[0];
+        var txt = newNode[2];
+        if (!txt || typeof txt == "object") {
+            this.err("Unrecognized value set for tag "+tag);
+            return null;
+        }
+        var valRE = txt.match(/^\s*(?:=>?|\:)\s*(\S.*?)\s*$/);
+        if (!valRE) {
+            this.err("Apparent tag '"+tag+"' does not have recognizable value ( should have format ' = Some Value')");
+            return null;
+        }
+        if (!nt.config[tag]) nt.config[tag] = [];
+        var val = valRE[1];
+        nt.config[tag].push(valRE[1]);
+        return newNode;
+    }
+    if (tag == 'p') {
+        // Intermediate <p> level
+        newNode.shift(); // Discard tag
+        parent[1] = newNode.shift(); // Give parent attributes
+        for (var i = 0; i < newNode.length; i++) {
+            parent.push( newNode[i] );
+        }
+        return null;
+    }
+    return newNode;
+}
+
+
+DHTMLAdventure.prototype.globalConfigFailed = function () {
+    this.debug("No configuration");
 }
 
 DHTMLAdventure.prototype.roomAction = function ( uri, action ) {
@@ -227,6 +306,7 @@ DHTMLAdventure.prototype.retrieveURI = function ( uri, action, afterAction ) {
         var root = uri = temp.href;
         root = root.replace(/[^\/]+$/,"");
         this.rootPath = root;
+        this.retrieveURI( 'Configuration.md', 'globalConfig' );
     }
     // alert(uri);
     $.ajax({url: uri,
@@ -240,8 +320,10 @@ DHTMLAdventure.prototype.retrieveURI = function ( uri, action, afterAction ) {
                 self[ action ]( result, uri, afterAction );
             },
             error: function(jqXHR, errType, errTxt) {
-                if (action == 'createRoom') {
-                    self.failedRoom( uri, afterAction, errType, errTxt );
+                var failMeth = action + "Failed";
+                if (self[ failMeth ]) {
+                    // There is a specific failure method for the action
+                    self[ failMeth ]( uri, afterAction, errType, errTxt );
                 } else {
                     self.err("<b>"+errType+"</b> : While recovering '"+uri+
                              "': <i>"+errTxt+"</i>");
@@ -260,8 +342,15 @@ function DAdocReady () {
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = //
 
 function DARoom ( da ) {
-    this.DA = da;
+    this.DA    = da;
     this.idCnt = 0;
+    this.config = {};
+}
+
+DARoom.prototype.param = function ( tag ) {
+    var rv = this.config[ tag ];
+    if (rv === undefined) rv = this.DA.config[ tag ];
+    return rv;
 }
 
 DARoom.prototype.type = function () {
@@ -297,6 +386,7 @@ DARoom.prototype.show = function () {
 DARoom.prototype._showMarkdown = function ( ) {
     this.DA.currentRoom = this.relpath;
     var jsonML = this.processJsonML();
+    this.newTree.showing = { ids: {} };
     var html = markdown.renderJsonML( jsonML );
     $("#main-pane").html( html )
     this.addExtras();
@@ -313,7 +403,9 @@ DARoom.prototype.showAdventureList = DARoom.prototype._showMarkdown;
 DARoom.prototype.showRoomFile = DARoom.prototype._showMarkdown;
 
 DARoom.prototype.addExtras = function ( ) {
-    var nt = this.newTree;
+    var DA   = this.DA;
+    var nt   = this.newTree;
+    var show = nt.showing;
     var mImg = nt.mainImage;
     var self = this;
     if (mImg) {
@@ -325,6 +417,7 @@ DARoom.prototype.addExtras = function ( ) {
     for (var i = 0; i < nt.images.length; i++) {
         // Deal with inline images
         var id   = nt.images[i];
+        if (show.ids[ id ]++) continue;
         var pSel = "#"+id;
         var img  = $(pSel + " > img");
         var orig = img.attr('title');
@@ -334,20 +427,54 @@ DARoom.prototype.addExtras = function ( ) {
     for (var r = 0; r < nt.rLinks.length; r++) {
         // Deal with room links
         var rId  = nt.rLinks[r];
+        if (show.ids[ rId ]++) continue;
         var anc  = $('#'+rId);
         anc.addClass('room-button')
             .click(function( event ) {
                 event.preventDefault();
                 var uri = event.target.getAttribute('href');
                 // alert(uri);
-                self.DA.roomAction( uri, 'show' );
+                DA.roomAction( uri, 'show' );
             });
         // Let's make sure that room is precached while we're here
         try {
-            self.DA.roomAction( anc.attr('href'), 'noOp' );
+            DA.roomAction( anc.attr('href'), 'noOp' );
         } catch (e) {
         }
     }
+    if (this.param('SourceButton') && !show.ids.sourceButton++) {
+        // Add a button to the menu that allows the source to be viewed
+        var mId = this.menu();
+        $("#"+mId ).append("<li id='showSource'>Show Page Source</li>");
+        $("#"+mId ).menu("refresh");
+        $("#showSource").click( function () { self.showSource() } )
+        $("#main-pane").append("<div id='mdsource'><button id='mdsrcclose'>Close</button><b>Markdown Source</b> <a href='"+this.uri+"' target='_blank'>Open raw file</a><pre>"+this.markdown+"</pre></div>");
+        $( "#mdsrcclose" ).button({
+            icons: { primary: "ui-icon-close" },
+            text: false }).click( function() {
+                $( "#mdsource" ).hide();
+            });
+        $( "#showSource" ).click( function() { $( "#mdsource" ).show(); });
+        $( "#mdsource" ).draggable();
+    }
+    // this.menu();
+}
+
+DARoom.prototype.showSource = function ( ) {
+}
+
+DARoom.prototype.menu = function ( ) {
+    if (this.newTree.showing.menu) return this.newTree.showing.menu;
+    var mId = "DAmenu";
+    // https://commons.wikimedia.org/wiki/File:Ic_settings_48px.svg
+    $("#main-pane").append("<image id='menugear' src='assets/images/Gear20x20.png' />");
+    $("#main-pane").append("<ul id='"+mId+"'></ul>");
+    $("#"+mId).menu().addClass('damenu');
+    $("#"+mId).hide();
+    $("#menugear").mouseenter( function() { $("#"+mId).show() } );
+    // Not entirely happy with mouseleave() here ...
+    $("#"+mId).mouseleave( function() { $("#"+mId).hide() });
+    return this.newTree.showing.menu = mId;
 }
 
 DARoom.prototype._creditButton = function ( obj, orig, cred) {
@@ -375,49 +502,36 @@ DARoom.prototype._creditButton = function ( obj, orig, cred) {
 DARoom.prototype.processJsonML = function ( ) {
     this.newTree = { 
         images: [],
-        rLinks: [],
+        rLinks: []
     };
     return this.newTree.tree = this._parse( this.rawTree );
 }
 
-DARoom.prototype._parse = function ( node, parent ) {
+DARoom.prototype._parse = DHTMLAdventure.prototype._parse =
+function ( node, parent ) {
     if (!(node instanceof Array)) return node; // String
-    var tag     = node[0]; // First entry is tag name, eg "ul" or "p"
-    var newNode = [ tag ];
-    var nt = this.newTree;
-    var nl = node.length;
-    var i  = 1;
-    if (nl) {
-        /* There are additional 'things' defined for this node. They
-         * can be:
-           "A string"  (raw text)
-           {An object} (attributes)
-           [] (One or more child nodes
-           The attributes must be handled specially
-         */
-         if ( typeof node[ i ] === "object" && 
-              !( node[ i ] instanceof Array ) ) {
-             // Attributes hash
-             newNode.push( node[i] );
-             i++;
-         }
-    }
-    // Not having attributes on all nodes can be irritating
-    // Make sure every node has an attribute hash in the second position:
-    if (i == 1) newNode.push( {} );
-    var attr = newNode[1];
+    var DA      = this.DA || this;
+    DA._noramlizeMarkedownNode( node );
+    var nl      = node.length;
+    var newNode = [ node[0], node[1] ];
     // Loop over the remaining parts, if any
-    var childCount = 0;
-    for (var j = i; j < nl; j++) {
+    for (var j = 2; j < nl; j++) {
         var kid = this._parse( node[j], newNode );
-        if (kid) {
-            newNode.push(kid);
-            childCount++;
-        }
+        if (kid) newNode.push(kid);
     }
+    // DA.debugObj(newNode);
+    return this[this.newTree.nodeHandler || '_nodeHandler']( newNode, parent );
+}
+
+DARoom.prototype._nodeHandler = function ( newNode, parent ) {
+    var DA      = this.DA;
+    var nt      = this.newTree;
+    var tag     = newNode[0]; // First entry is tag name, eg "ul" or "p"
+    var attr    = newNode[1];
+    var kidNum  = newNode.length - 2;
     if (tag == 'img') {
         // Normalize image URLs
-        attr.src = this.DA.absoluteURI( attr.src );
+        attr.src = DA.absoluteURI( attr.src );
         if (!nt.mainImage) {
             // The first image should go in the image pane
             nt.mainImage = attr;
@@ -427,10 +541,11 @@ DARoom.prototype._parse = function ( node, parent ) {
         // anchor credit buttons on that.
         nt.images.push( parent[1].id = "Image" + ++this.idCnt );
         parent[1].class = "cred-p";
-        // parent[0] = 'div';
-        childCount++;
+        kidNum++;
+    } else if (tag == 'hr') {
+        kidNum++;
     } else if (tag == 'a') {
-        var href = attr.href = this.DA.absoluteURI( attr.href );
+        var href = attr.href = DA.absoluteURI( attr.href );
         if (/\.md$/.test(href) && !(/^(\/|http)/.test(href))) {
             // This appears to be another room file
             if (this.roomType == 'AdventureList') {
@@ -439,7 +554,7 @@ DARoom.prototype._parse = function ( node, parent ) {
                 // adventure.
                 var docref = document.location.href;
                 attr.href = docref + '?' + attr.href;
-                this.DA.debugObj( href );
+                // DA.debugObj( href );
             } else {
                 nt.rLinks.push(attr.id = "RoomLink" + ++this.idCnt);
             }
@@ -448,7 +563,8 @@ DARoom.prototype._parse = function ( node, parent ) {
             attr.class='ext-lnk'
             attr['_target'] = 'blank'
         }
-        // this.DA.debugObj( newNode );
+        // DA.debugObj( newNode );
     }
-    return childCount ? newNode : null;
+    return kidNum ? newNode : null;
 }
+

@@ -44,3 +44,9 @@ code {
 /* Highlight links that open outside the game https://stackoverflow.com/a/18168287 */
 /* Icon from Wikipedia: https://upload.wikimedia.org/wikipedia/commons/6/64/Icon_External_Link.png */
 .ext-lnk:after { content: url(images/Icon_External_Link.png); margin: 0 0 0 5px; }
+
+#menugear { top: 0; left: 0; position: absolute }
+.damenu { top: 2; left: 2; position: absolute; font-size: 0.7em}
+#mdsource { display: none; top: 10; left: 1%; width:98%; position: absolute; background-color: #ddd; border: 2px solid #040; }
+#mdsource pre { color: brown; font-size: 0.8em; padding: 3px; background-color: #eee;}
+#mdsrcclose { background: red; width: 2em; font-size: 0.5em; }
