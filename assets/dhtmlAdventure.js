@@ -95,7 +95,7 @@ DHTMLAdventure.prototype.err = function ( html ) {
 }
 
 DHTMLAdventure.prototype.init = function () {
-    var startDoc = "AdventureList.md";
+    var startDoc = "README.md";
     var dl = document.location;
     var locPart;
     if (dl.search) {
@@ -159,7 +159,7 @@ DHTMLAdventure.prototype.absoluteURI = function ( uri ) {
         rv = rv.replace(/^\.\//, '');
         if (/\.md$/.test(rv)) {
             // Markdown files should always be at root level of root path
-            // This helps launch adventures from the AdventureList.md page
+            // This helps launch adventures from the README.md page
             rv = rv.replace(/.+\//,'');
         }
         rv = this.rootPath + rv;
@@ -177,6 +177,18 @@ DHTMLAdventure.prototype.relativeURI = function ( uri ) {
     var rv = this.absoluteURI( uri );
     rv = rv.replace(this.basePath, '');
     return rv;
+}
+
+DHTMLAdventure.prototype.sameDomainURI = function ( uri ) {
+    if (!uri) return null;
+    // Relative links are always same domain
+    if (!/:\/\//.test(uri)) return uri;
+    if (!this.domain) {
+        // hostname appears to be empty for file protocols
+        this.domain = window.location.hostname || 'file://';
+    }
+    if (uri.indexOf(this.domain) > -1) return uri;
+    return null;
 }
 
 DHTMLAdventure.prototype.getCachedRoom = function ( uri  ) {
@@ -299,7 +311,7 @@ DHTMLAdventure.prototype.retrieveURI = function ( uri, action, afterAction ) {
     if (!action) action = "createRoom";
     if (this.rootPath) {
         uri = this.absoluteURI(uri);
-    } else if (/\.md$/.test(uri) && !/AdventureList\.md$/.test(uri)) {
+    } else if (/\.md$/.test(uri) && !/README\.md$/.test(uri)) {
         // https://stackoverflow.com/a/6644749
         var temp = document.createElement('a');
         temp.href = uri;
@@ -358,7 +370,7 @@ DARoom.prototype.type = function () {
     if (!t) {
         t = "Unknown";
         var uri = this.uri;
-        if (/AdventureList\.md$/.test(uri)) {
+        if (/README\.md$/.test(uri)) {
             t = "AdventureList";
         } else if (/\.md$/.test(uri)) {
             t = "RoomFile";
@@ -546,16 +558,17 @@ DARoom.prototype._nodeHandler = function ( newNode, parent ) {
         kidNum++;
     } else if (tag == 'a') {
         var href = attr.href = DA.absoluteURI( attr.href );
-        if (/\.md$/.test(href) && !(/^(\/|http)/.test(href))) {
+        var docref = document.location.href;
+        if (/\.md$/.test(href) && DA.sameDomainURI( href )) {
             // This appears to be another room file
             if (this.roomType == 'AdventureList') {
                 // We are still on the initial list page. We want to
                 // make URLs that will force a reload to start a new
                 // adventure.
-                var docref = document.location.href;
                 attr.href = docref + '?' + attr.href;
                 // DA.debugObj( href );
             } else {
+                // Will post process in a later step
                 nt.rLinks.push(attr.id = "RoomLink" + ++this.idCnt);
             }
         } else {
