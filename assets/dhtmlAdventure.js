@@ -10,8 +10,15 @@ function DHTMLAdventure () {
     this.roomCache  = [0];
 }
 
-var DAConstants = {
-    fileerror: "Room file failed to load"
+var DaDefaultConfig = {
+    StartWithInventory: {
+        desc: "The player begins with a generic inventory",
+        val: 1
+    },
+    SourceButton: {
+        desc: "Put a 'View Source' option in the settings menu. Useful for tutorial, but would allow 'cheating' in some cases.",
+        val: 0
+    }
 };
 
 DHTMLAdventure.prototype.initLayout = function () {
@@ -245,6 +252,13 @@ DHTMLAdventure.prototype.globalConfig = function( text, uri, action  ) {
     //this.debugObj( tree );
 }
 
+DHTMLAdventure.prototype.param = function ( tag ) {
+    var rv = this.config[ tag ];
+    if (rv === undefined && DaDefaultConfig[ tag ])
+        rv = DaDefaultConfig[ tag ].val;
+    return rv;
+}
+
 DHTMLAdventure.prototype._configHandler = function( newNode, parent ) {
     var nt      = this.newTree;
     var tag     = newNode[0]; // First entry is tag name, eg "ul" or "p"
@@ -361,7 +375,7 @@ function DARoom ( da ) {
 
 DARoom.prototype.param = function ( tag ) {
     var rv = this.config[ tag ];
-    if (rv === undefined) rv = this.DA.config[ tag ];
+    if (rv === undefined) rv = this.DA.param( tag );
     return rv;
 }
 
@@ -456,23 +470,17 @@ DARoom.prototype.addExtras = function ( ) {
     }
     if (this.param('SourceButton') && !show.ids.sourceButton++) {
         // Add a button to the menu that allows the source to be viewed
-        var mId = this.menu();
-        $("#"+mId ).append("<li id='showSource'>Show Page Source</li>");
-        $("#"+mId ).menu("refresh");
-        $("#showSource").click( function () { self.showSource() } )
+        var iId = this.menuItem("Show Page Source", 1);
         $("#main-pane").append("<div id='mdsource'><button id='mdsrcclose'>Close</button><b>Markdown Source</b> <a href='"+this.uri+"' target='_blank'>Open raw file</a><pre>"+this.markdown+"</pre></div>");
         $( "#mdsrcclose" ).button({
             icons: { primary: "ui-icon-close" },
             text: false }).click( function() {
                 $( "#mdsource" ).hide();
             });
-        $( "#showSource" ).click( function() { $( "#mdsource" ).show(); });
+        $( "#"+iId ).click( function() { $( "#mdsource" ).show(); });
         $( "#mdsource" ).draggable();
     }
     // this.menu();
-}
-
-DARoom.prototype.showSource = function ( ) {
 }
 
 DARoom.prototype.menu = function ( ) {
@@ -488,6 +496,22 @@ DARoom.prototype.menu = function ( ) {
     $("#"+mId).mouseleave( function() { $("#"+mId).hide() });
     return this.newTree.showing.menu = mId;
 }
+
+DARoom.prototype.menuItem = function ( menuText, wiggle ) {
+    var sKey = "MenuItem:"+menuText;
+    var iId = this.newTree.showing[sKey];
+    if (!iId) {
+        var mId = this.menu();
+        iId     = this.newTree.showing[sKey] = 'menu' + ++this.idCnt;
+        $("#"+mId ).append("<li id='"+iId+"'>"+menuText+"</li>");
+        $("#"+mId ).menu("refresh");
+        // Highlight that something was added to the menu
+        if (wiggle) $("#menugear").effect
+        ("shake", { times: 1, direction: "right", distance: 5 }, "fast");
+    }
+    return iId;
+}
+
 
 DARoom.prototype._creditButton = function ( obj, orig, cred) {
     if (!obj) return;  // No parent object
